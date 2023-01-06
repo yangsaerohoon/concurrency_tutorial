@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional
 public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
 
@@ -14,9 +13,11 @@ public class ProductServiceImpl implements ProductService {
         this.productRepository = productRepository;
     }
 
-    public void sold(String productId, Integer quantity) {
+    @Transactional
+    public synchronized void sold(String productId, Integer quantity) {
         Product product = getProductByProductId(productId);
         product.sold(quantity);
+        productRepository.saveAndFlush(product);
     }
 
     public Product getProductByProductId(String productId) {
