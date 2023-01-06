@@ -5,6 +5,7 @@ import dev.ys.stockservice.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.concurrent.CountDownLatch;
@@ -17,8 +18,13 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 class ProductServiceTest {
 
+    @Qualifier("productServiceImpl")
     @Autowired
     private ProductService productService;
+
+    @Qualifier("productServicePessimisticLockImpl")
+    @Autowired
+    private ProductService pessimisticLockProductService;
 
     @Autowired
     private ProductRepository productRepository;
@@ -54,6 +60,33 @@ class ProductServiceTest {
             });
         }
         //latch가 0이 되면 스레드가 모두 종료한 것
+        latch.await();
+
+        Product soldProduct = productService.getProductByProductId("productA");
+
+        assertThat(soldProduct.getQuantity()).isEqualTo(0);
+    }
+
+    @Test
+    void pessimisticLockSoldTest() {
+        pessimisticLockProductService.sold("productA", 10);
+        Product soldProduct = pessimisticLockProductService.getProductByProductId("productA");
+
+        assertThat(originProduct.getQuantity()-10).isEqualTo(soldProduct.getQuantity());
+    }
+
+    @Test
+    void pessimisticLockMultipleSoldTest() throws InterruptedException {
+        int numOfThreads = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(numOfThreads);
+        CountDownLatch latch = new CountDownLatch(numOfThreads);
+
+        for (int i = 0; i < numOfThreads; i++) {
+            executorService.submit(() -> {
+                pessimisticLockProductService.sold("productA", 10);
+                latch.countDown();
+            });
+        }
         latch.await();
 
         Product soldProduct = productService.getProductByProductId("productA");
